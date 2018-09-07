@@ -20,6 +20,7 @@ For this assignment I will be looking at records of political lobbyist activitie
 library(ggplot2)
 library(dplyr)
 library(pander)
+library(boot)
 
 ## Read data
 comp_dat <- read.csv("lobbyist-data-compensation.csv")
@@ -38,11 +39,10 @@ lobby_dat[, "LOBBYIST_ID"] <- as.factor(lobby_dat[, "LOBBYIST_ID"])
 
 ## Clean variable names
 colnames(lobby_dat) <- c("lobbyist.id", "comp.amount", "contrib.amount")
-pander(head(lobby_dat))
+pander(head(lobby_dat, 4))
 
 ```
 
-\newpage
 
 ## Fine tuning
 
@@ -53,7 +53,10 @@ After some manipulation with `dplyr` I now have a managable dataset with only th
 lobby_summary <- lobby_dat %>% 
   group_by(lobbyist.id) %>% 
   summarise(comp_sum = sum(comp.amount), contrib_sum = sum(contrib.amount))
+```
 
+
+```{r}
 ## View new tibble
 pander(head(lobby_summary))
 ```
@@ -90,9 +93,7 @@ plot2 <- ggplot(lobby_summary, aes(contrib_sum)) +
 
 grid.arrange(plot1, plot2, ncol=2)
 
-
 ```
-
 
 As shown in the plots above, there is a heavy right skew on both variables. Interestingly, there seems to be a few incredibly well compensated lobbyists. The contributions do not reach such high numbers as it seems to cap around $1,500,000. The big takeaway from these plots is that there are a few incredibly expensive endeavours that companies deem worth the money.
 
@@ -101,9 +102,14 @@ As shown in the plots above, there is a heavy right skew on both variables. Inte
 # Summary Statistics
 
 ```{r, warning=FALSE}
+
+## Summary statistics for lobbyist compensation 
 pander(summarise(lobby_summary, Mean = mean(comp_sum), Median = median(comp_sum),
           Std_dev = sd(comp_sum), IQR = IQR(comp_sum)), caption = "Compensation per lobbyist")
+
 ```
+
+Here we can see that the mean for lobbyist compensation is 1437068. The value is so large do to the heavy right skew distribution. Looking at the median 110586 is a much more modest number when compared to the mean. There is a very high standard deviation of 4397683 which indicates that there is a high variation among lobbyist comensation values. The interquartile range is the difference between Q3 and Q1 meaning that the middle fifty percent of the data has a spread of 517688.
 
 ```{r, warning=FALSE}
 pander(summarise(lobby_summary, Mean = mean(contrib_sum), 
@@ -111,7 +117,9 @@ pander(summarise(lobby_summary, Mean = mean(contrib_sum),
                  IQR = IQR(contrib_sum)), caption = "Contribution per lobbyist")
 ```
 
-# COME BACK HERE AND EXPLAIN
+The mean for lobbyist contribution is 61119. Similar to the compensation, The value is so large do to the heavy right skew. The median is 9050 which is not as extreme as the mean. The standard deviation of 138014  which indicates that there is a high variation among lobbyist contribution values. The interquartile range is the difference between Q3 and Q1 meaning that the middle fifty percent of the data has a spread of 44500.
+
+
 
 ****
 
@@ -122,13 +130,15 @@ lobby_mod <- lm(data=lobby_summary, contrib_sum ~ comp_sum)
 pander(summary(lobby_mod))
 ```
 
-# EXPLAIN LINEAR MODEL HERE
+The model here shows that the total compensation paid to a lobbyist has is significant in explaining the contribution amount put towards a political organization. For every one dollar increase in total compensation, the total contribution amount increases by two percent. When the total compensation amount is zero, we can expect there to be a total political contribution of $27,016. With and $R^{2}$ of .57, we can say that 57% of the variation in the total contribution can be explained by the total compensation per lobbyist.  
 
 ****
 
+\newpage
+
 # Bivariate Plot
 
-```{r}
+```{r, warning=FALSE}
 ## Plot linear regression
 ggplot(lobby_summary, aes(log(comp_sum), log(contrib_sum))) +
   geom_point() +
@@ -144,6 +154,84 @@ ggplot(lobby_summary, aes(log(comp_sum), log(contrib_sum))) +
 
 ****
 
+\newpage
+
 # Bootstrap Confidence Interval
 
+```{r, cache=TRUE}
+
+## CI for Mean
+mn <- function(d, i) {
+  d[i,] %>%
+    summarise(mn = mean(comp_sum)) %>%
+    .[['mn']]
+}
+
+m <- lobby_summary %>%
+  na.omit %>%
+  boot(., statistic = mn, R = 3000, parallel="multicore", ncpus=4) 
+bCI <- boot.ci(m, conf = 0.98, type = "bca")
+bCI
+
+```
+
+We can be 98% confident that the mean total compensation amount per lobbyist is between $1,170,669 and $1,783,100.
+
+```{r, cache=TRUE}
+
+## CI for Median
+med <- function(d, i) {
+  d[i,] %>%
+    summarise(med = median(comp_sum)) %>%
+    .[['med']]
+}
+
+m <- lobby_summary %>%
+  na.omit %>%
+  boot(., statistic = med, R = 3000, parallel="multicore", ncpus=4) 
+bCI <- boot.ci(m, conf = 0.98, type = "bca")
+bCI
+
+```
+
+We can be 98% confident that the median total compensation amount per lobbyist is between $87,771 and $125,993.
+
+
+```{r, cache=TRUE}
+
+## CI for Standard Deviation
+std_dev <- function(d, i) {
+  d[i,] %>%
+    summarise(std_dev = sd(comp_sum)) %>%
+    .[['std_dev']]
+}
+
+m <- lobby_summary %>%
+  na.omit %>%
+  boot(., statistic = std_dev, R = 3000, parallel="multicore", ncpus=4) 
+bCI <- boot.ci(m, conf = 0.98, type = "bca")
+bCI
+
+```
+
+We can be 98% confident that the standard deviation for total compensation amount per lobbyist is between $3,590,507 and $5,603,371. 
+
+
+```{r, cache=TRUE}
+
+iqr <- function(d, i) {
+  d[i,] %>%
+    summarise(iqr = IQR(comp_sum)) %>%
+    .[['iqr']]
+}
+
+m <- lobby_summary %>%
+  na.omit %>%
+  boot(., statistic = iqr, R = 3000, parallel="multicore", ncpus=4) 
+bCI <- boot.ci(m, conf = 0.98, type = "bca")
+bCI
+
+```
+
+We can be 98% confident that the IQR for  total compensation amount per lobbyist is between $399,675 and $753,745.
 
