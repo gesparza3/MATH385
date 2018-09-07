@@ -1,0 +1,149 @@
+---
+title: "Simple Analysis"
+author: "Grant Esparza"
+date: "September 6, 2018"
+output: 
+  pdf_document:
+    highlight: pygments
+---
+
+# Introduction
+
+For this assignment I will be looking at records of political lobbyist activities in the city of Chicago. I obtained this data from the website Kaggle, which was orignally found on the City of Chicago's organization page. There were several datasets to choose from, however I decided to focus on the relationship between a lobbyist's compensation and how that affected the amount of money donated to political organizations. This information was found in two seperate files, `lobbyist_data-compensation.csv` and `lobbyist-data-contributions.csv`.
+
+****
+
+# Data Preparation
+
+```{r, message=FALSE, warning=FALSE}
+## load libraries 
+library(ggplot2)
+library(dplyr)
+library(pander)
+
+## Read data
+comp_dat <- read.csv("lobbyist-data-compensation.csv")
+contribute_dat <- read.csv("lobbyist-data-contributions.csv")
+
+## Select variables of interest
+comp_dat <- comp_dat %>% select(LOBBYIST_ID, COMPENSATION_AMOUNT)
+contribute_dat <- contribute_dat %>% select(LOBBYIST_ID, AMOUNT)
+
+## Join datasets
+lobby_dat  <- inner_join(comp_dat, contribute_dat, 
+                         on = c("LOBBYIST_ID" = "LOBBYIST_ID"))
+
+## Make lobbyist id a factor for grouping
+lobby_dat[, "LOBBYIST_ID"] <- as.factor(lobby_dat[, "LOBBYIST_ID"])
+
+## Clean variable names
+colnames(lobby_dat) <- c("lobbyist.id", "comp.amount", "contrib.amount")
+pander(head(lobby_dat))
+
+```
+
+\newpage
+
+## Fine tuning
+
+After some manipulation with `dplyr` I now have a managable dataset with only the variables I care about. However, notice that there are multiple records for each lobbyist. To take care of that I'll use `group_by` and `summarise` to calculate the total values for each lobbyist.
+
+```{r}
+# Group by lobbyist, calculate sum for comp and contriubtion
+lobby_summary <- lobby_dat %>% 
+  group_by(lobbyist.id) %>% 
+  summarise(comp_sum = sum(comp.amount), contrib_sum = sum(contrib.amount))
+
+## View new tibble
+pander(head(lobby_summary))
+```
+
+****
+
+# Visualization
+
+```{r, fig.align="center", fig.height=4, fig.width=7, warning=FALSE, message=FALSE}
+
+require(gridExtra)
+
+plot1 <- ggplot(lobby_summary, aes(comp_sum)) + 
+  geom_histogram(bins = 11) +
+  ggtitle("Compensation per Lobbyist") +
+  xlab("Compensation Total") + ylab("Count") +
+  scale_x_continuous(labels = scales::comma) +
+  theme_minimal() + 
+  theme(axis.title.x = element_text(face = "italic"), 
+        axis.title.y = element_text(face = "italic"),
+        axis.text.x = element_text(angle=45, hjust=1),
+        title = element_text(face = "bold"))
+
+plot2 <- ggplot(lobby_summary, aes(contrib_sum)) + 
+  geom_histogram(bins = 11) +
+  ggtitle("Contribution per Lobbyist") +
+  xlab("Contribution Total") + ylab("Count") +
+  scale_x_continuous(labels = scales::comma) +
+  theme_minimal() + 
+  theme(axis.title.x = element_text(face = "italic"), 
+        axis.title.y = element_text(face = "italic"),
+        axis.text.x = element_text(angle=45, hjust=1),
+        title = element_text(face = "bold"))
+
+grid.arrange(plot1, plot2, ncol=2)
+
+
+```
+
+
+As shown in the plots above, there is a heavy right skew on both variables. Interestingly, there seems to be a few incredibly well compensated lobbyists. The contributions do not reach such high numbers as it seems to cap around $1,500,000. The big takeaway from these plots is that there are a few incredibly expensive endeavours that companies deem worth the money.
+
+****
+
+# Summary Statistics
+
+```{r, warning=FALSE}
+pander(summarise(lobby_summary, Mean = mean(comp_sum), Median = median(comp_sum),
+          Std_dev = sd(comp_sum), IQR = IQR(comp_sum)), caption = "Compensation per lobbyist")
+```
+
+```{r, warning=FALSE}
+pander(summarise(lobby_summary, Mean = mean(contrib_sum), 
+                 Median = median(contrib_sum), Std_dev = sd(contrib_sum), 
+                 IQR = IQR(contrib_sum)), caption = "Contribution per lobbyist")
+```
+
+# COME BACK HERE AND EXPLAIN
+
+****
+
+# Simple Linear Regression
+
+```{r}
+lobby_mod <- lm(data=lobby_summary, contrib_sum ~ comp_sum)
+pander(summary(lobby_mod))
+```
+
+# EXPLAIN LINEAR MODEL HERE
+
+****
+
+# Bivariate Plot
+
+```{r}
+## Plot linear regression
+ggplot(lobby_summary, aes(log(comp_sum), log(contrib_sum))) +
+  geom_point() +
+  stat_smooth(method="lm") + 
+  ggtitle("Compensation vs Contribution") +
+  xlab("Compensation Total") + ylab("Contribution Total") +
+  theme_minimal() + 
+  theme(axis.title.x = element_text(face = "italic"), 
+        axis.title.y = element_text(face = "italic"),
+        axis.text.x = element_text(angle=45, hjust=1),
+        title = element_text(face = "bold"))
+```
+
+****
+
+# Bootstrap Confidence Interval
+
+
