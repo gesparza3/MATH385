@@ -196,7 +196,8 @@ pander(summary(fire_mod))
 
 For every one percent increase in California wildfires in a county caused by arson, there is a 1.58% increase in total acres burned.
 
-When the percent of fires caused by arson is zero, the amount of total acres burned will be -0.50.
+When the log of fires caused by arson is zero, the log of total acres burned will be -0.50.
+
 
 # Prediction
 
