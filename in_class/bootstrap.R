@@ -138,7 +138,7 @@ sd_sample_data <- function(data, idx) {
 
 ## 2nd arg is user defined function with 2 args itself
 b <- boot(hospitals$nurses, sd_sample_data, R=999) 
-boot.ci(b, type="norm")
+boot.ci(b, type="norm") ## We are assuming that our distribution is normal
 # BOOTSTRAP CONFIDENCE INTERVAL CALCULATIONS
 # Based on 999 bootstrap replicates
 # 
@@ -153,3 +153,13 @@ boot.ci(b, type="norm")
 ## We are 95% confident that the true population standard deviation of nurses is between
 ## 115.3 and 164.6.
 
+################################################################################
+
+regression_sample_data <- function(original_data, idx) {
+    df <- original_data[idx,]
+    fit <- lm(infection_risk ~ stay, data=df)
+    coef(fit)
+}
+
+b <- boot(hospital, regression_sample_data, R=999)
+boot.ci(b, type="perc", index=2)
