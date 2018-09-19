@@ -3,6 +3,7 @@ library(ggplot2)
 library(RSQLite)
 library(dplyr)
 library(ggrepel)
+library(boot)
 
 ##################################SQL CLEANUP###################################
 
@@ -72,6 +73,31 @@ summary(fire_mod)
 ## Summary Stats
 summarise(num_fires, Mean = mean(sum_size), Median = median(sum_size),
           Std_dev = sd(sum_size), IQR = IQR(sum_size))
+
+################################################################################
+
+## Bootstrap CIs
+mean_sample_data <- function(data, idx) {
+   mean(data[idx]) ## Mean of a vector
+}
+
+b <- boot(num_fires$sum_size, mean_sample_data, R=999) 
+boot.ci(b, type="perc")
+
+median_sample_data <- function(data, idx) {
+   median(data[idx]) ## Mean of a vector
+}
+
+b <- boot(num_fires$sum_size, median_sample_data, R=999) 
+boot.ci(b, type="perc")
+
+sd_sample_data <- function(data, idx) {
+   sd(data[idx]) ## Mean of a vector
+}
+
+b <- boot(num_fires$sum_size, sd_sample_data, R=999) 
+boot.ci(b, type="perc")
+
 
 ################################################################################
 
