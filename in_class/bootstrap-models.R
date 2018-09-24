@@ -35,4 +35,3 @@ b <- boot(email, boot_linear_regression, R=999)
 for (i in 1:5) {
   print(boot.ci(b, type="perc", index=i)$t)
 }
-
