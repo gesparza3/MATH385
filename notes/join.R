@@ -68,7 +68,7 @@ df_plot_counties <- aqi.county %>%
   left_join(montana.counties, by="subregion")
 
 ################################################################################
-# Make plot for Montana
+# Make plot for Montana                                                        #
 ################################################################################
 
 ggplot(data=montana.counties, aes(x=long, y=lat, group=group)) +
