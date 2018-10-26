@@ -1,8 +1,8 @@
 ---
-title: Scrape a Website I
+title: Scrape a Website II
 author: Grant Esparza
 date: October, 26 2018
-output: pdf_document
+output: html_document
 ---
 
 ```{r, echo=FALSE, message=FALSE}
@@ -10,9 +10,12 @@ output: pdf_document
 library(stringr)
 library(httr)
 library(dplyr)
+library(ggplot2)
+library(ggExtra)
 library(gridExtra)
 library(knitr)
 library(pander)
+library(RSQLite)
 library(data.table)
 
 ```
