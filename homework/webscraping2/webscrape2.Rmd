@@ -1,0 +1,214 @@
+---
+title: Scrape a Website I
+author: Grant Esparza
+date: October, 26 2018
+output: pdf_document
+---
+
+```{r, echo=FALSE, message=FALSE}
+
+library(stringr)
+library(httr)
+library(dplyr)
+library(gridExtra)
+library(knitr)
+library(pander)
+library(data.table)
+
+```
+
+# Introduction
+
+Several of our last assignments have used data from the EPA to explore the
+concept of webscraping. While plotting mean Air Quality Index values across
+counties, I noticed that Montana had especially high values in western counties
+during the year 2016. After learning that Montan had gone through major
+wildfires that year, I thought it would be useful to explore the history
+of the relationship between AQI and wildfires in this area. I'll be focusing on
+data from the years 2005-2015.
+
+****
+
+# Preparing the data
+
+The goal here is to aggreate information about AQI and wildfires so that I have
+one complete dataset I can use to do some analysis. I've gone through the steps
+of collecting each dataset individually so now I need to put it all together.
+
+## Wildfires
+
+For the data on wildfires, I'll need to connect to my database and extract
+information about Montana:
+
+```{r}
+
+## Extract fire table from database
+db <-dbConnect(SQLite(), "fire_database.sqlite")
+res <- dbSendQuery(db, "SELECT * FROM Fires WHERE State == 'MT'")
+fires <- dbFetch(res)
+
+```
+
+Next I'll need to generate the statistics that I'm interested in. For this
+analysis I'll need the total number of fires and the mean fire size. I'll
+also need to make sure I group by the year and each county.
+
+```{r}
+
+## Get a tibble
+montana.fires <- fires %>%
+    group_by(FIRE_YEAR, FIPS_NAME) %>%
+    summarise(num_fires=n(), mn_fire_size=mean(FIRE_SIZE),
+              sum_fire_size=sum(FIRE_SIZE))
+
+```
+
+## AQI
+
+First I need to grab the data from the EPA website. I want data from several years
+so I need to save these `csv` files into a folder.
+
+```{r, eval=FALSE}
+
+## Incomplete web links
+get_request <- GET("https://aqs.epa.gov/aqsweb/airdata/download_files.html#AQI")
+html <- content(get_request, "text")
+incomplete_links <- as.data.frame(
+                      str_match_all(
+                        html, pattern="<a href=\"daily.*county_[0-9]{4}\\.zip\">"
+                      ) ## str_match_all
+                    ) ## as.data.frame
+
+## Split
+incomp_links <- as.data.frame(str_split_fixed(incomplete_links[,1],
+                                              pattern="\"", 3))
+colnames(incomp_links) <- c("href", "link", "end")
+
+## Add home url
+complete_links <- paste("https://aqs.epa.gov/aqsweb/airdata/",
+                        incomp_links$link, sep="")
+
+## Add data to folder
+for (link in complete_links[4:14]) {
+  get_request <- GET(link)
+  bin_data <- content(get_request, "raw")
+  writeBin(bin_data, "daily-county-aqi")
+  unzip(zipfile="daily-county-aqi", exdir="aqi")
+}
+
+```
+
+Next I need to combine these files into one dataframe. I'll make use of the
+`data.table` function `fread()` to speed up the process.
+
+```{r}
+
+## Read csvs
+files <- list.files(path="aqi", full.names=TRUE)
+
+## Stack datasets
+aqi.df <- rbindlist(lapply(files, fread))
+
+## Tidy the data
+colnames(aqi.df) <- c("region", "subregion", "state.code", "county.code", "date",
+                      "aqi", "category", "defining.parameter", "defining.site",
+                      "number.of.sites.reporting")
+aqi.df$date <- year(aqi.df$date)
+
+```
+
+Now that I have the complete table, I'll generate some statistics.
+
+```{r}
+
+## Get a tibble
+montana.aqi <- aqi.df %>%
+  filter(region == "Montana") %>%
+  group_by(date, subregion) %>%
+  summarise(mn_aqi=mean(aqi), md_aqi=median(aqi))
+
+```
+
+## Bringing it all together
+
+Now I'll join the datasets so I have one complete source of data. I'll need to
+make sure that they have matching column names so that they join properly.
+
+```{r}
+
+## Rename columns for join
+colnames(montana.fires)[colnames(montana.fires) == "FIRE_YEAR"] <- "date"
+colnames(montana.fires)[colnames(montana.fires) == "FIPS_NAME"] <- "subregion"
+
+## Join
+montana.comp <- montana.aqi %>%
+  inner_join(montana.fires, by=c("subregion", "date"))
+
+montana.comp
+
+```
+
+****
+
+# Analysis
+
+Now that everything is in place I'd like to compare number of fires per year in
+each county to the mean AQI each year per county. Remember the orignal focus of
+this exploration was the western counties of Montana, so I'll need to make sure
+my analysis considers only these counties.
+
+## Plot the data
+
+```{r, message=FALSE, warning=FALSE}
+
+## Select western counties
+montana.western <- montana.comp %>%
+  filter(subregion %in% c("Lincoln", "Flathead", "Sanders", "Lake", "Missoula",
+                        "Ravalli", "Powell"))
+
+## Number of fires explains mean_aqi
+p <- ggplot(montana.western, aes(log(num_fires), log(mn_aqi))) +
+  geom_point(aes(shape=subregion)) +
+  stat_smooth(method="lm", se=FALSE) +
+  ggtitle("Fires vs AQI per year in Montana counties") +
+  xlab("Log of fires per year") + ylab("Log of mean AQI per year") +
+  theme_minimal() +
+  theme(axis.title.x = element_text(face = "italic"),
+        axis.title.y = element_text(face = "italic"),
+        axis.text.x = element_text(angle=45, hjust=1),
+        title = element_text(face = "bold"))
+
+## Add margin plots
+ggMarginal(p, type="boxplot")
+
+```
+
+The plot seems to show a postive relationship between the number of fires and
+the mean AQI per year in each county.
+
+## Model
+
+Now that I have reason to believe there is a relationship, I'll build a linear
+model to see how it fits.
+
+```{r}
+
+summary(lm(log(mn_aqi)~log(num_fires), data=montana.western))
+
+```
+
+The adjusted $R^{2}$ of **0.59** tells us that 59% of the variance in the log of the mean AQI per year in each county is explained by the log number of fires each year per county.
+
+For each one percent increase in the number of fires per year in each county, there is a0.43 percent increase in the mean AQI per year in each county.
+
+When the log number of fires per year in each county is equal to zero, the log of the
+mean AQI per year in each county is 1.59.
+
+****
+
+# Takeaway
+
+This analysis supports my initial suspicion that the high AQI values in western
+Montana were related to large wildfires in the area. The idea that AQI is affected
+by wildfires is not a revolutionary concept, but it was rewarding to see my assumptions
+backed up by data from multiple sources.
