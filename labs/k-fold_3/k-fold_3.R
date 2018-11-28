@@ -28,8 +28,17 @@ folds <- createFolds(bikes$cnt)
 # Create MSE vectors
 ################################################################################
 
-mse_mean <- rep(NA, 10)
-mse_anova <- rep(NA, 10)
+mse_mr01 <- rep(NA, 10)
+mse_mr02 <- rep(NA, 10)
+
+################################################################################
+# Test some models
+################################################################################
+
+# temp
+
+summary(lm(cnt ~ as.factor(season) + temp + as.factor(season):temp, data = bikes))
+summary(lm(cnt ~ workingday + as.factor(season) + as.factor(season):workingday, data = bikes))
 
 ################################################################################
 # Calculate MSE using K-folds
@@ -38,17 +47,15 @@ mse_anova <- rep(NA, 10)
 for(fold in 1:length(folds)) {
   training <- bikes[-folds[[fold]],]
   testing <- bikes[folds[[fold]],]
-  mse_mean[fold] <- MSE(testing$cnt, mean(training$cnt))
-  model <- lm(cnt ~ as.factor(season), data = training)
-  mse_anova[fold] <- MSE(testing$cnt, predict(model, newdata=testing))
+  mod01 <- lm(cnt ~ as.factor(season) + temp + as.factor(season):temp, data = bikes)
+  mod02 <- lm(cnt ~ workingday + as.factor(season) + as.factor(season):workingday, data = bikes)
+  mse_mr01[fold] <- MSE(testing$cnt, predict(mod01, newdata=testing))
+  mse_mr02[fold] <- MSE(testing$cnt, predict(mod02, newdata=testing))
 }
 
 ################################################################################
 # Mean of the MSE's
 ################################################################################
 
-mean(mse_mean)
-# [1] 3748400
-
-mean(mse_anova)
-# [1] 2467114
+mean(mse_mr01)
+mean(mse_mr02)

@@ -1,0 +1,69 @@
+---
+title: "K-Folds"
+author: "Grant Esparza"
+date: "November 7, 2018"
+---
+
+## Read data
+
+```{r}
+
+library(caret)
+bikes <- read.csv("https://roualdes.us/data/bike.csv")
+
+```
+
+## Create Mean Squared Error function
+
+```{r}
+
+MSE <- function(y, yhat) {
+  mean((y - yhat)^2)
+}
+
+```
+
+## Call create folds
+
+```{r}
+
+folds <- createFolds(bikes$cnt)
+
+```
+
+## Create two vectors to hold results
+
+```{r}
+
+mse_mean <- rep(NA, 10)
+mse_anova <- rep(NA, 10)
+
+```
+
+## Use a loop to do k-folds calculation
+```{r}
+
+for(fold in 1:length(folds)) {
+  training <- bikes[-folds[[fold]],]
+  testing <- bikes[folds[[fold]],]
+  mse_mean[fold] <- MSE(testing$cnt, mean(training$cnt))
+  model <- lm(cnt ~ as.factor(season), data = training)
+  mse_anova[fold] <- MSE(testing$cnt, predict(model, newdata=testing))
+}
+
+```
+
+## Compare the mean of the Mean Squared Errors
+```{r}
+
+mean(mse_mean)
+mean(mse_anova)
+
+```
+
+Here we can see that the ANOVA model had a lower Mean Squared Error, indicating
+that it's predictions were closer to the actual data. These MSE's are a better
+indicator of predicting future values because we trained our model and compared
+it to results it did not know about. ANOVA is the better model because it considers
+more variables than the simple mean. By using the `season` variable we are providing
+our model with more information.
