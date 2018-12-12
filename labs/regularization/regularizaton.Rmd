@@ -5,6 +5,14 @@ date: December 12, 2018
 output: pdf
 ---
 
+```{r, echo=FALSE}
+
+library(glmnet)
+library(caret)
+
+```
+
+
 # Questions to think about
 
 1. Penalty term. Look at the parameter alpha under the Arguments section and
@@ -42,3 +50,99 @@ output: pdf
     Squared Error. The value of `lambda.1se` will provide a model with smaller
     coefficents since as the value of lambda increases, the coefficents shrink
     to zero**.
+
+# Prediction
+
+### Read the data
+
+```{r}
+
+bikes <- read.csv("https://roualdes.us/data/bike.csv")
+
+```
+
+### MSE
+
+```{r}
+
+MSE <- function(y, yhat) {
+  mean((y - yhat)^2)
+}
+
+```
+
+### Create training and testing datasets
+
+```{r}
+
+train_idx <- createDataPartition(bikes$cnt, p=0.75, list=FALSE)
+training <- bikes[train_idx, ]
+testing <- bikes[-train_idx, ]
+
+## Create training inputs
+train_x <- model.matrix(cnt ~ temp + as.factor(season), data=training)[, -1]
+train_y <- training$cnt
+
+## Create testing inputs
+test_x <- model.matrix(cnt ~ temp + as.factor(season), data=testing)[, -1]
+test_y <- testing$cnt
+
+```
+
+### Make the models
+
+```{r}
+
+# Create unregularized model
+unreg <- lm(cnt ~ temp + as.factor(season), data=training)
+
+# Create regularized model
+fit <- cv.glmnet(train_x, train_y, nfolds=10, alpha=1)
+
+```
+
+### Make predictions
+
+
+```{r}
+
+MSE(test_y, predict(unreg, newdata=testing))
+MSE(test_y, predict(fit, s = fit$lambda.min, test_x))
+MSE(test_y, predict(fit, s = fit$lambda.1se, test_x))
+
+```
+
+**Here we can see that `lambda.min` produced the smallest MSE. The unregularized model
+actually had a smaller MSE than the model regularized with `lambda.1se`.**
+
+\newpage
+
+# Plots
+
+```{r}
+
+plot(fit)
+
+```
+
+**This plot shows the Lasso model chose to keep three of my orignal four variables.
+However, I actually chose two variables, one of which had four categorical
+levels. It seems that summer does not contribute to reducing the MSE.**
+
+# Overfitting
+
+```{r}
+
+coef(unreg)
+coef(fit)
+
+```
+\newpage
+I am surprised by `cv.glmnet`'s decision to minimize the summer season. I would
+have guessed the summer season would be significant in terms of bike rental activity.
+I can believe spring has an effect on bike rentals, since people tend to enjoy
+the new warm weather. It also makes sense that the cold of winter would be have
+an impact on bike rentals.
+
+I found it surprising that spring's coefficent was reduced by so much, however this
+is most likely because spring doesn't explain enough of the variance in bike rentals.

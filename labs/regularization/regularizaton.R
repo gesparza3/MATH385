@@ -64,13 +64,17 @@ testing <- bikes[-train_idx, ]
 # Create unregularized model
 unreg <- lm(cnt ~ temp + as.factor(season), data=training)
 
-# Create regularized model
-X <- model.matrix(~ temp + as.factor(season), data=training)
-y <- training$cnt
-fit <- cv.glmnet(X, y, nfolds=nrow(bikes), grouped=FALSE, alpha=0)
+# Create regularized model with training
+train_x <- model.matrix(cnt ~ temp + as.factor(season), data=training)[, -1]
+train_y <- training$cnt
+fit <- cv.glmnet(train_x, train_y, nfolds=10, alpha=1)
+
+
+test_x <- model.matrix(cnt ~ temp + as.factor(season), data=testing)[, -1]
+
 
 # Predict
 MSE(testing$cnt, predict(unreg, newdata=testing))
 # [1] 1951654
-MSE(testing$cnt, predict(fit, newx=model.matrix(~ temp + as.factor(season), data=testing), lambda=fit$lambda.1se))
+MSE(testing$cnt, predict(fit, s = fit$lambda.min, test_x))
 MSE(testing$cnt, predict(fit, newx=model.matrix(~ temp + as.factor(season), data=testing), lambda=fit$lambda.min))
