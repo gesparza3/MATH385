@@ -45,17 +45,32 @@ bikes <- read.csv("https://roualdes.us/data/bike.csv")
 #    of λ to choose. Explain the difference?
 
 
+## MSE
+MSE <- function(y, yhat) {
+  mean((y - yhat)^2)
+}
+
 ################################################################################
 # Prediction
 ################################################################################
 
 # Create training and testing datasets
-train_idx <- createDataPartition(y, p=0.75, list=FALSE)
+train_idx <- createDataPartition(bikes$cnt, p=0.75, list=FALSE)
 training <- bikes[train_idx, ]
 testing <- bikes[-train_idx, ]
 
-# Calculate predictions for 3 models
-X <- model.matrix(~ temp, data=training)
+## Calculate predictions for 3 models
+
+# Create unregularized model
+unreg <- lm(cnt ~ temp + as.factor(season), data=training)
+
+# Create regularized model
+X <- model.matrix(~ temp + as.factor(season), data=training)
 y <- training$cnt
 fit <- cv.glmnet(X, y, nfolds=nrow(bikes), grouped=FALSE, alpha=0)
-plot(fit)
+
+# Predict
+MSE(testing$cnt, predict(unreg, newdata=testing))
+# [1] 1951654
+MSE(testing$cnt, predict(fit, newx=model.matrix(~ temp + as.factor(season), data=testing), lambda=fit$lambda.1se))
+MSE(testing$cnt, predict(fit, newx=model.matrix(~ temp + as.factor(season), data=testing), lambda=fit$lambda.min))

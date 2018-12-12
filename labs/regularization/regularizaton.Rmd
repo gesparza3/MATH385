@@ -1,0 +1,44 @@
+---
+title: Regularization Lab
+author: Grant Esparza
+date: December 12, 2018
+output: pdf
+---
+
+# Questions to think about
+
+1. Penalty term. Look at the parameter alpha under the Arguments section and
+   the objective function under the Details section of the help file for
+   glmnet.
+
+   a. What piece of the puzzle are they calling the penalty term?
+
+      **The penalty term is alpha. When using lasso this value is set to 1
+      and 0 for ridge.**
+
+   b. What piece of the puzzle are they calling the objective function?
+
+      **The objective function is the minimization function that serves as our
+      model.**
+
+2. Ridge versus Lasso
+
+    a. What is the main difference between Ridge regression and Lasso?
+
+       **Ridge regression penalizes the coefficents using a squared term where
+       Lasso uses an absolute value term. This allows Lasso to shrink coefficents
+       down to zero, which serves as a variable selection feature.**
+
+    b. When might you be interested in one or the other?
+
+       **As mentioned above, it would be useful to use Lasso when attempting
+       to identify unecessary variables. These variables would be reduced to zero
+       indicating they do not improve the model.**
+
+3. Notice the ouput of `cv.glmnet` produces two specific values of ${\lambda}$.
+   What is the difference?
+
+   **The value of `lambda.min` will provide a model with the smallest Mean
+    Squared Error. The value of `lambda.1se` will provide a model with smaller
+    coefficents since as the value of lambda increases, the coefficents shrink
+    to zero**.
