@@ -11,8 +11,11 @@ library(boot)
 db <-dbConnect(SQLite(), "fire_database.sqlite")
 res <- dbSendQuery(db, "SELECT * FROM Fires WHERE State == 'CA'")
 cal_fires <- dbFetch(res)
+dbDisconnect(db)
 
 ################################################################################
+
+## USE DISCOVERY_DOY AND DISCOVER_YEAR
 
 ## Column names
 colnames(cal_fires)
