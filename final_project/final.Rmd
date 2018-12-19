@@ -1,0 +1,12 @@
+---
+Title: Which Regression?
+Author: Grant Esparza
+Date: December 19, 2018
+output: beamer_presentation
+---
+
+# The Data
+
+What;s up
+
+# Plots
