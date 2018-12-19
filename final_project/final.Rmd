@@ -1,12 +1,218 @@
 ---
-Title: Which Regression?
-Author: Grant Esparza
-Date: December 19, 2018
+title: Model Selection with BMA
+author: Grant Esparza
+date: December 19, 2018
 output: beamer_presentation
 ---
 
-# The Data
+```{r, echo=FALSE}
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
 
-What;s up
+```
+
+```{r, echo=FALSE, messages=FALSE}
+
+library(ggplot2)
+library(dplyr)
+library(BAS)
+library(gridExtra)
+library(pander)
+cars <- read.csv("https://roualdes.us/data/cars.csv")
+
+```
+
+
+# Introduction
+
+Picking models and ensuring that you end up using the right predictors can be a difficult task.
+Bayesian Model Averaging is a method that can be used to conduct Bayesian regression which
+is similar to linear regression however with some exceptions.
+
+We'll go through the model building process for both linear regression and Bayesian regression
+and see which produces the better model at predicting mpg.
+
 
 # Plots
+
+```{r, echo=FALSE, warning=FALSE, messages=FALSE}
+
+p1 <- ggplot(cars, aes(mpgCity)) +
+  geom_histogram(bins=20, fill="blue") +
+  ggtitle("Fuel use in the city (mpg)") +
+    xlab("mpg") + ylab("Frequency") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(face = "italic"),
+          axis.title.y = element_text(face = "italic"),
+          axis.text.x = element_text(angle = 50, hjust=1),
+          title = element_text(face = "bold"))
+
+p2 <- ggplot(cars, aes(type, mpgCity, fill=type)) +
+  geom_boxplot() +
+  ggtitle("Type of car vs Fuel use in the city (mpg)") +
+    xlab("Type") + ylab("mpg") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(face = "italic"),
+          axis.title.y = element_text(face = "italic"),
+          axis.text.x = element_text(angle = 50, hjust=1),
+          title = element_text(face = "bold"))
+
+p3 <- ggplot(cars, aes(driveTrain, mpgCity, fill=driveTrain)) +
+  geom_boxplot() +
+  ggtitle("Drive train vs Fuel use in the city (mpg)") +
+    xlab("Drive train") + ylab("mpg") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(face = "italic"),
+          axis.title.y = element_text(face = "italic"),
+          axis.text.x = element_text(angle = 50, hjust=1),
+          title = element_text(face = "bold"))
+
+p4 <- ggplot(cars, aes(as.factor(passengers), mpgCity, fill=as.factor(passengers))) +
+  geom_boxplot() +
+  ggtitle("Drive train vs Fuel use in the city (mpg)") +
+    xlab("Drive train") + ylab("mpg") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(face = "italic"),
+          axis.title.y = element_text(face = "italic"),
+          axis.text.x = element_text(angle = 50, hjust=1),
+          title = element_text(face = "bold"))
+
+grid.arrange(ncol=2, p1, p2, p3, p4)
+
+```
+
+----
+
+```{r, echo=FALSE, warning=FALSE, messages=FALSE}
+
+p1 <- ggplot(cars, aes(x=price, y=mpgCity)) +
+  geom_point() +
+  stat_smooth(method="lm", se=FALSE) +
+  ggtitle("Price vs Fuel use in the city (mpg)") +
+    xlab("Price (thousands of US dollars)") + ylab("mpg") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(face = "italic"),
+          axis.title.y = element_text(face = "italic"),
+          axis.text.x = element_text(angle = 50, hjust=1),
+          title = element_text(face = "bold"))
+
+p2 <- ggplot(cars, aes(x=weight, y=mpgCity)) +
+  geom_point() +
+  stat_smooth(method="lm", se=FALSE) +
+  ggtitle("Weight vs Fuel use in the city (mpg)") +
+    xlab("Weight") + ylab("mpg") +
+    theme_minimal() +
+    theme(axis.title.x = element_text(face = "italic"),
+          axis.title.y = element_text(face = "italic"),
+          axis.text.x = element_text(angle = 50, hjust=1),
+          title = element_text(face = "bold"))
+
+grid.arrange(ncol=2, p1, p2)
+
+```
+
+# Multiple Linear Regression
+
+```{r, echo=FALSE, size='tiny'}
+
+summary(lm(mpgCity ~ type + price + driveTrain + passengers + weight, data=cars))
+
+```
+
+#
+
+```{r, echo=FALSE, size='tiny'}
+
+summary(lm(mpgCity ~ type + driveTrain + passengers + weight, data=cars))
+
+```
+
+----
+
+```{r, echo=FALSE, size='tiny'}
+
+linear.mod <- lm(mpgCity ~ type + passengers + weight, data=cars)
+summary(linear.mod)
+
+```
+
+Removing more variables results in a smaller Adj$R^{2}$
+
+# Bayesian Regression
+
+Bayesian regression is similar to linear regression but it has the benefit of
+supplying a *prior* distribution to the coefficents. By using the *posterior*, the
+conditional distribution of the weights given a dataset, we can update our prior
+for another iteration.
+
+Using the package `BMA`, we can sample from out dataset to generate inclusion
+probabilities for each of the coefficents in our model. This process will help
+us select a model with coefficents that are most likely to be in the "true"
+model.
+
+# Bayesian Model Averaging
+
+```{r, size='tiny'}
+
+car_bays <- BAS::bas.lm(mpgCity ~., data=cars, method="MCMC", prior="ZS-null",
+                        modelprior=uniform())
+
+```
+`method` - Sampling method to use for Bayesian Model Averaging. `MCMC` samples with replacement using the Markov chain Monte Carlo algorithm
+
+`prior` - Prior distribution for regression coefficents. `ZS-null` uses the Cauchy distribution
+
+`modelprior` - Family of prior distribution on the models. `uniform()` assigns equal probabilities to all models
+
+#
+
+```{r, echo=FALSE, size='tiny'}
+
+summary(car_bays)
+
+```
+
+# Looking at the model
+
+```{r, echo=FALSE}
+
+par(mfrow=c(1,2))
+plot(car_bays, which = c(2, 3), ask=F)
+
+```
+
+
+# Model Ranking
+
+```{r}
+
+image(car_bays, rotate=F)
+
+```
+
+# Predictions
+
+Let's try to predict the mpg for a 1995 Ford F-150 with front wheel drive. The actual city mpg is **15 mpg**.
+
+```{r, echo=FALSE}
+
+linear.pred <- predict(linear.mod, data.frame(type="large", passengers=2, weight=4033), interval="predict")
+bay.pred <- predict(car_bays, data.frame(type="large", price=27.0, driveTrain="front",passengers=2, weight=4033), estimator="BMA", interval="predict", se.fit=TRUE)
+
+```
+```{r}
+
+linear.pred[1]
+bay.pred$Ybma
+
+```
+
+# Conclusion
+
+We were able to create both linear regression and Bayesian models that aimed
+to predict the mpg consumed in the city. While we settled for a model with four
+predictors for the linear model, the Bayesian Model Averaging performed on our
+data decided the best model was the variable that only used weight as a predictor.
